@@ -1,4 +1,4 @@
-# CEMICRO-Final-Project-P2
+# CEMICRO Final Project Part II
 
 ## Important files:
 
