@@ -1,5 +1,5 @@
 PROGRAM		EQU	$0000        
-RAM             EQU      $00E4          
+RAM             EQU     $00E4          
 
 BASE		EQU	$1000         
 PORT_A		EQU	$00            ; Port A (CE', OE', P', VPROG_EN)
@@ -31,91 +31,79 @@ START           LDS     #STACK
                 
                 LDAA    #$0C            
                 STAA    SCCR2, X       
-                
-                LDAA    PORT_A, X
-                ORAA    #%00001000      ; Set bit 3: VPROG_EN = 1
-                STAA    PORT_A, X
-                
-                NOP                       
-                JSR     BLANK_READ_SUBROUTINE  
+                                       
+                JSR BLANK_READ_SUBROUTINE
+                TSTB
+                BNE  END        ; if not blank, END
+  
                 
 ; WRITING LOGIC START
+
+                LDY     #PATTERN
+                CLRA                   
+                LDAB    #25             
+                
+         
+WRITE           STAA    PORT_B, X   
 
                 LDAA    PORT_A, X
                 ORAA    #%00001000      ; Set bit 3: VPROG_EN = 1 
                 STAA    PORT_A, X
-
-                LDY     #PATTERN        
-                JSR     DISABLE         ; Ensure EPROM is disabled (CE'=1, OE'=1, P'=1)
-                JSR     LONG_DELAY      
                 
-                
-                CLRA                   
-                LDAB    #25             
-                
-WRITE           STAA    PORT_B, X       
+                JSR     DISABLE
+                JSR     MS_DELAY    
 
                 PSHA                    
                 PSHB                    
                 
-                CLRA                  
                 CLRB                    
                 
-RETRY           ; Check loop counter
-                CMPB	#25             ; Compare retry counter with 25 (max retries)
+           ; Check loop counter
+RETRY           CMPB	#25             ; Compare retry counter with 25 (max retries)
                 BEQ     END             
 		INCB                   
                 
                
-                JSR     DATA_OUT   
-                
-               
+                JSR     DATA_OUT                  
                 JSR     MS_DELAY        
                 
                 LDAA    PORT_A, X
                 ANDA    #%10111111      ; Clear bit 6: P' = 1 (end programming pulse)
                 ORAA    #%00110000      ; Set bits 5,4: CE'=0, OE'=1
                 STAA    PORT_A, X       ; CE'=0 (chip enabled), OE'=1 (output disabled), P'=1
+                JSR     MS_DELAY   
                 
-                JSR     MS_DELAY        
-                
-
+                LDAA    PORT_A, X
+                ANDA    #%11110111      ; VPROG_EN = 0
+                STAA    PORT_A, X
+                     
                 JSR     DATA_IN         
-                
-
                 LDAA    PORT_C, X       
-                SUBA    0, Y            
+                CMPA    0, Y            
                 BNE     RETRY          
                 
+                JSR     MS_DELAY3
+                JSR     MS_DELAY3
+                JSR     MS_DELAY3
 
-                JSR     DATA_OUT        
+                PULB
+                PULA
+    
+                INY
+                INCA
+                DECB
+                BNE     WRITE        
                 
-LONG_PULSE      JSR     MS_DELAY3       
-                DECB                    
-                BNE     LONG_PULSE      
-                
-                JSR     DISABLE         ; Disable EPROM (CE'=1, OE'=1, P'=1)
-                JSR     MS_DELAY        
-                PULB                    
-                PULA                    
-                
-                INY                     
-                INCA                    
-                DECB                    
-                BNE     WRITE           ; Loop until all 25 bytes programmed
-                
-                
+
 
 ; WRITING LOGIC ENDS             
 END             JSR     DISABLE        
                 JSR     BLANK_READ_SUBROUTINE  
-                JSR     DISABLE         
-                
-FIN             BRA     FIN             
+                JSR     DISABLE  
+                RTS                   
 
 
 MS_DELAY        PSHX                   
-                
                 LDX     #$014B          
 MS1             DEX                     
                 BNE     MS1            
@@ -125,7 +113,6 @@ MS1             DEX
                 
 
 MS_DELAY3       PSHX                    
-                
                 LDX     #$03E6          
 MS3             DEX                     
                 BNE     MS3             
@@ -154,12 +141,6 @@ DATA_OUT        ; Setup PORT C as output
                 ORAA    #%00110000      ; Set bits 5,4: CE'=0, OE'=1
                 STAA    PORT_A, X       ; CE'=0 (chip enabled), OE'=1 (output disabled), P'=0
                 
-                JSR     MS_DELAY       
-                
-                LDAA    PORT_A, X
-                ANDA    #%10101111      ; Clear bit 4: OE' = 0 (enable output)
-                STAA    PORT_A, X       ; CE'=0, OE'=0, P'=0
-                
                 RTS                     
                 
 DATA_IN         
@@ -169,7 +150,6 @@ DATA_IN
                 
                 LDAA    PORT_A, X
                 ANDA    #%10011111      ; Clear bits 5,4: CE'=0, OE'=0
-                ORAA    #%00010000      ; Set bit 4: OE'=0
                 STAA    PORT_A, X       ; CE'=0, OE'=0, P'=1 (from previous state)
                 
                 JSR     MS_DELAY        
@@ -182,13 +162,13 @@ TRANSFER_DATA	BRCLR	SCSR,X #$80 TRANSFER_DATA
 		RTS                     
 
 
-DISABLE         ; DISABLE EPROM: CE' = 1, OE' = 1, P' = 1
-                LDAA    PORT_A, X
+         ; DISABLE EPROM: CE' = 1, OE' = 1, P' = 1
+DISABLE         LDAA    PORT_A, X
                 ORAA    #%01110000      ; Set bits 6,5,4: P'=1, CE'=1, OE'=1
                 STAA    PORT_A, X      
                 RTS                 
                 
-
+                
 BLANK_READ_SUBROUTINE
 
                 LDAA    #$00            
@@ -202,8 +182,9 @@ BLANK_READ_SUBROUTINE
                 JSR     DISABLE         
                 JSR     LONG_DELAY      
                 
-                CLRA                   
-                LDAB    #25             
+                CLRA    
+                LDAB    #0               
+                LDY    #25             
                 
 BLANK_READ      STAA    PORT_B, X      
                 PSHA                    
@@ -222,8 +203,12 @@ BLANK_READ      STAA    PORT_B, X
                 JSR     MS_DELAY        
                 
                 ; Get data from the 2764
-                LDAA    PORT_C, X       
-                JSR     TRANSFER_DATA  
+                LDAA    PORT_C, X  
+                CMPA    #$00    ;checks first if byte is equal to FFh
+                BEQ     BYTE_OK
+                INCB
+                     
+BYTE_OK         JSR     TRANSFER_DATA  
                 
                 JSR     MS_DELAY        ; Wait 1ms
                 
@@ -234,7 +219,7 @@ BLANK_READ      STAA    PORT_B, X
                 ; Loop termination logic
                 PULA                    
                 INCA                    
-                DECB                    
+                DEY                    
                 BNE     BLANK_READ      ; Loop until all 25 addresses read
                 
                 RTS                     
