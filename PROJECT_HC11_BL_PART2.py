@@ -158,55 +158,14 @@ def main(argv):
         
         # modified (for part 2) - - - - - - - - - - - - - - - - - - - - - - - - - - -
         if echo_success:
-            print("\nHC11 is now running your RAM programmer.\n")
-            print("Waiting for blank-check result from HC11 ('B' = blank, 'E' = error)...")
+            print("\nHC11 is now running your RAM programmer.")
+            print("EPROM blank-check, programming, retries, and verify are all handled internally by PROJ2.asm.")
+            print("Preparing to read back final 25 bytes...\n")
 
-            result = ser.read(1)
-            if not result:
-                print("ERROR: No blank-check response from HC11.")
-                ser.close()
-                return
-
-            code = result.decode(errors='ignore')
-            print("HC11 says:", code)
-
-            if code == 'E':
-                print("\nEPROM is NOT blank. Erase the EPROM and try again.")
-                ser.close()
-                return
-
-            if code == 'B':
-                print("\nEPROM is blank.\nHC11 already contains the 25-byte data pattern internally.")
-                
-            #wait for verify result
-            print("\nWaiting for verify result ('V' = OK, 'F' = FAIL)...")
-            v = ser.read(1)
-
-            if not v:
-                print("ERROR: No verify response from HC11.")
-                ser.close()
-                return
-
-            vcode = v.decode(errors='ignore')
-            print("Verify result:", vcode)
-
-            if vcode != 'V':
-                print("\nVERIFY FAILED — EPROM did not program correctly.")
-                ser.close()
-                return
-
-            print("\nVerify OK! Now performing final readback...")
-
-            #switch to 9600 baud for readback
-            ser.close()
-            ser.baudrate = 9600
-            ser.timeout = 15.0
-            ser.open()
-
-            read_eprom_data(ser)  
+            read_eprom_data(ser)
         else:
             print("Echo failed. Will not attempt programming.")
-            
+
     ser.close()
 
 # Upon receiving 256th byte, older HC11s will automatically stop RX and do a jump to RAM location 0000h. 
